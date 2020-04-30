@@ -379,6 +379,4 @@ We have permission.js containing an async function to request permission from th
 
 You can use an App ID with a certificate by making the following changes in the project:
 
-In `Home.js` define your token in the state as `token: *insert your token here*`
-
-In `Video.js` add `token: this.props.token` to your state and edit the `joinChannel` method to use the token like this: `RtcEngine.joinChannel(this.state.channelName, this.state.uid, `**`this.state.token`**`);`
+In `App.js` add your `token` to the join channel call on line 58 `engine.current.joinChannel("TOKENHERE", channelName, null, 0)`
