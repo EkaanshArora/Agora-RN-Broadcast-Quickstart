@@ -1,4 +1,4 @@
-# Agora React Native Demo
+# Agora React Native Broadcasting Demo
 
 Quickstart for live-broadcasting on react-native using Agora.io SDK.
 Use this guide to quickly start a multiple user live broadcast.
@@ -22,7 +22,7 @@ Use this guide to quickly start a multiple user live broadcast.
 ├── components
 │ └── permission.js
 │ └── Style.js
-│ └── Video.js
+│ └── App.js
 ├── ios
 ├── index.js
 .
