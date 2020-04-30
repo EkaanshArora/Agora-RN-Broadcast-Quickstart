@@ -49,6 +49,8 @@ The app uses `channel-x` as the channel name.
 
 ## Understanding the code
 
+Agora SDK uses channels. Channels are something similar to chat rooms and every App ID can spawn multiple channels. Users are able to join and leave a channel at will. A broadcaster can transmit their video to all other audience members and broadcasters. A member in the audience can only receieve the feeds of the broadcasters.
+
 ### What we need
 ![Image of how a call works](flow.png?raw=true)
 
@@ -119,15 +121,19 @@ export default StyleSheet.create({
 ```
 We have the styles for the view defined in a stylesheet inside Style.js
 
-### Video.js
+### App.js
 
-```javascript
+```typescript
 import requestCameraAndAudioPermission from './permission';
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, Platform } from 'react-native';
 import RtcEngine, { RtcLocalView, RtcRemoteView } from 'react-native-agora';
 import styles from './Style';
+```
+We write the used import statements, react-native-agora module gives us an RtcEngine class components to display the videofeeds.
 
+```typescript
+...
 const App: React.FC = () => {
   const LocalView = RtcLocalView.SurfaceView;
   const RemoteView = RtcRemoteView.SurfaceView;
@@ -135,12 +141,16 @@ const App: React.FC = () => {
 
   const appid: string = '9383ec2f56364d478cefc38b0a37d8bc';
   const channelName: string = 'channel-x';
+```
+We define our functional component, and extract components to display the videofeeds of the users from the SDK. We create the engine object and add our app ID as well as the channel name, appid is the agora app id used to authorize access to the sdk, channelName is used to join a channel (users on the same channel can view each other's feeds).
+```typescript
+...
   const [joinSucceed, setJoinSucceed] = useState<boolean>(false);
   const [peerIds, setPeerIds] = useState<Array<number>>([]);
   const [channelRole, setChannelRole] = useState<1 | 2>(1);
 ```
-We write the used import statements and define our functional component. We extract components for Local and Remote view from the SDK. We define the engine object and add our app ID as well as the channel name. We set our state variables: appid is the agora app id used to authorize access to the sdk, channelName is used to join a channel (users on the same channel can view each other's feeds), joinSucceed which is used to check if we've successfully joined a channel and setup our view, peerIds is an array that stores the unique ID of connected peers used to display their videofeeds and channelRole which let's us pick between broadcasters and audience.
-```javascript
+ We set our state variables: joinSucceed which is used to check if we've successfully joined a channel and setup our view, peerIds is an array that stores the unique ID of connected peers used to display their videofeeds and channelRole which let's us pick between broadcasters and audience.
+```typescript
 ...
   useEffect(() => {
     /**
@@ -175,9 +185,9 @@ We write the used import statements and define our functional component. We extr
     init();
   }, []);
   ```
-  We define our init function to initialize the Rtc Engine, attach event listeners and actions. We get permissions on Android. We create an instance of the Engine object. The RTC Engine fires events on user events, we define functions and add listeners to handle the logic for maintaing user's on the call. We update the peerIds array to store connected users' uids which is used to show their feeds. When a new user joins the call, we add their uid to the array. When user leaves the call, we remove their uid from the array; if the local users successfully joins the call channel, we start the stream preview.
+  We define our init function to initialize the Rtc Engine, attach event listeners and actions. First we need to get camera and mic permissions on Android when the app starts. We create an instance of the Engine object. The RTC Engine fires events on user actions, we define functions and add listeners to handle the logic for maintaing users on the call. We update the peerIds array to store connected users' uids which is used to show their feeds. When a new user joins the call, we add their uid to the array. When user leaves the call, we remove their uid from the array; if the local users successfully joins the call channel, we use joinSuceed the render our view.
 
-```javascript
+```typescript
 ...
 /**
    * @name startCall
