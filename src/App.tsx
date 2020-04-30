@@ -10,7 +10,7 @@ const App: React.FC = () => {
   const RemoteView = RtcRemoteView.SurfaceView;
   let engine = useRef<RtcEngine | null>(null);
 
-  const appid: string = '9383ec2f56364d478cefc38b0a37d8bc';
+  const appid: string = 'YOUR APP ID HERE';
   const channelName: string = 'channel-x';
   const [joinSucceed, setJoinSucceed] = useState<boolean>(false);
   const [peerIds, setPeerIds] = useState<Array<number>>([]);

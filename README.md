@@ -6,7 +6,7 @@ Use this guide to quickly start a multiple user live broadcast.
 
 ## Prerequisites
 * '>= react native 0.55.x'
-* iOS SDK 8.0+
+* iOS SDK 8.0+ (and a recent version of XCode and cocoapods)
 * Android 5.0+ x86 arm64 armv7a
 * A valid Agora account ([Sign up](https://dashboard.agora.io/) for free)
 
@@ -19,11 +19,11 @@ Use this guide to quickly start a multiple user live broadcast.
 ```
 .
 ├── android
-├── components
+├── ios
+├── src
+│ └── App.tsx
 │ └── permission.js
 │ └── Style.js
-│ └── App.js
-├── ios
 ├── index.js
 .
 ```
@@ -42,8 +42,7 @@ Check the end of document if you want to use App ID with certificate.
 
 * Download and extract the zip file from the master branch.
 * Run npm install or use yarn to install the app dependencies in the unzipped directory.
-* Navigate to `./components/Video.js` and edit line 18 to enter your App ID that we generated as `AppID: 'YourAppIDGoesHere'`
-* Open a terminal and execute `react-native link react-native-agora`.
+* Navigate to `./src/App.tsx` and edit line 13 to enter your App ID that we generated.
 * Connect your device and run `react-native run-android` / `react-native run-ios` to start the app.
 
 The app uses `channel-x` as the channel name.
@@ -124,229 +123,227 @@ We have the styles for the view defined in a stylesheet inside Style.js
 
 ```javascript
 import requestCameraAndAudioPermission from './permission';
-import React, { Component } from 'react';
-import { View, NativeModules, ScrollView, Text, TouchableOpacity, Platform } from 'react-native';
-import { RtcEngine, AgoraView } from 'react-native-agora';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, Platform } from 'react-native';
+import RtcEngine, { RtcLocalView, RtcRemoteView } from 'react-native-agora';
 import styles from './Style';
 
-const { Agora } = NativeModules;            //Define Agora object as a native module
+const App: React.FC = () => {
+  const LocalView = RtcLocalView.SurfaceView;
+  const RemoteView = RtcRemoteView.SurfaceView;
+  let engine = useRef<RtcEngine | null>(null);
 
-const {
-  FPS30,
-  AudioProfileDefault,
-  AudioScenarioDefault,
-  Adaptative,
-} = Agora;                                  //Set defaults for Stream
-
-const config = {                            //Setting config of the app
-  appid: 'ENTER APP ID HERE',               //Enter the App ID generated from the Agora Website
-  channelProfile: 1,                        //Set channel profile as 1 for RTC
-  videoEncoderConfig: {                     //Set Video feed encoder settings
-    width: 720,
-    height: 1080,
-    bitrate: 1,
-    frameRate: FPS30,
-    orientationMode: Adaptative,
-  },
-  clientRole: 1,                                        //clientRole is set 1 for broadcaster, 2 for audience (defaults)
-  audioProfile: AudioProfileDefault,
-  audioScenario: AudioScenarioDefault,
-};
+  const appid: string = '9383ec2f56364d478cefc38b0a37d8bc';
+  const channelName: string = 'channel-x';
+  const [joinSucceed, setJoinSucceed] = useState<boolean>(false);
+  const [peerIds, setPeerIds] = useState<Array<number>>([]);
+  const [channelRole, setChannelRole] = useState<1 | 2>(1);
 ```
-We write the used import statements and define the Agora object as a native module and set the defaults from it. We also define the configuration for our RTC engine with settings for the audio and video stream.
+We write the used import statements and define our functional component. We extract components for Local and Remote view from the SDK. We define the engine object and add our app ID as well as the channel name. We set our state variables: appid is the agora app id used to authorize access to the sdk, channelName is used to join a channel (users on the same channel can view each other's feeds), joinSucceed which is used to check if we've successfully joined a channel and setup our view, peerIds is an array that stores the unique ID of connected peers used to display their videofeeds and channelRole which let's us pick between broadcasters and audience.
 ```javascript
 ...
-class Video extends Component {
+  useEffect(() => {
+    /**
+     * @name init
+     * @description Function to initialize the Rtc Engine, attach event listeners and actions
+     */
+    async function init() {
+      if (Platform.OS === 'android') {
+        //Request required permissions from Android
+        await requestCameraAndAudioPermission();
+      }
+      engine.current = await RtcEngine.create(appid);
+      engine.current.enableVideo();
 
-  constructor(props) {
-    super(props);
-    this.state = {
-      peerIds: [],                                       //Array for storing connected peers
-      uid: Math.floor(Math.random() * 100),              //Generate a UID for local user
-      appid: config.appid,
-      channelName: 'channel-x',                        //Channel Name for the current session
-      joinSucceed: false,                              //State variable for storing success
-      channelRole: 1,                                  //Channel Role for local user - 1: Broadcaster and 0: Audience
-    };
-    if (Platform.OS === 'android') {                   //Request required permissions from Android
-      requestCameraAndAudioPermission().then(_ => {
-        console.log('requested!');
+      engine.current.addListener('UserJoined', (uid: number) => {
+        //If user joins the channel
+        setPeerIds((pids) =>
+          pids.indexOf(uid) === -1 ? [...pids, uid] : pids,
+        ); //add peer ID to state array
+      });
+
+      engine.current.addListener('UserOffline', (uid: number) => {
+        //If user leaves
+        setPeerIds((pids) => pids.filter((userId) => userId !== uid)); //remove peer ID from state array
+      });
+
+      engine.current.addListener('JoinChannelSuccess', () => {
+        //If Local user joins RTC channel
+        setJoinSucceed(true); //Set state variable to true
       });
     }
-  }
+    init();
+  }, []);
   ```
-  We define the class based video component. In the constructor, we set our state variables: peerIds is an array that stores the unique ID of connected peers used to display their videofeeds, uid is the local user’s unique id that we transmit our videofeed alongside, appid is the agora app id used to authorize access to the sdk, channelName is used to join a channel (users on the same channel can view each other's feeds) and joinSucceed which is used to check if we've successfully joined a channel and setup our scrolling-view.
-
-
-  ```javascript
-  ...
-  componentDidMount() {
-    RtcEngine.on('userJoined', (data) => {
-      const { peerIds } = this.state;                   //Get currrent peer IDs
-      if (peerIds.indexOf(data.uid) === -1) {           //If new user has joined
-        this.setState({
-          peerIds: [...peerIds, data.uid],              //add peer ID to state array
-        });
-      }
-    });
-
-    RtcEngine.on('userOffline', (data) => {             //If user leaves
-      this.setState({
-        peerIds: this.state.peerIds.filter(uid => uid !== data.uid), //Remove peer ID from state array
-      });
-    });
-
-
-    RtcEngine.on('joinChannelSuccess', (data) => {                   //If Local user joins RTC channel
-      RtcEngine.startPreview();                                      //Start RTC preview
-      this.setState({
-        joinSucceed: true,                                           //Set state variable to true
-      });
-    });
-
-    RtcEngine.on('clientRoleChanged',(data) => {
-      // console.log(data);                             //Callback for when client role is changed by anyone on stream
-    });
-
-    RtcEngine.init(config);                                         //Initialize the RTC engine
-  }
-
-  componentWillUnmount() {
-    RtcEngine.destroy();
-  }
-  ```
-The RTC Engine fires events on user events, we define functions to handle the logic for maintaing user's on the call. We update the peerIds array to store connected users' uids which is used to show their feeds.
-When a new user joins the call, we add their uid to the array. When user leaves the call, we remove their uid from the array; if the local users successfully joins the call channel, we start the stream preview.
-We use `RtcEngine.init(config)` to initialise the RTC Engine with our defined configuration. 
+  We define our init function to initialize the Rtc Engine, attach event listeners and actions. We get permissions on Android. We create an instance of the Engine object. The RTC Engine fires events on user events, we define functions and add listeners to handle the logic for maintaing user's on the call. We update the peerIds array to store connected users' uids which is used to show their feeds. When a new user joins the call, we add their uid to the array. When user leaves the call, we remove their uid from the array; if the local users successfully joins the call channel, we start the stream preview.
 
 ```javascript
 ...
 /**
-  * @name startCall
-  * @description Function to start the call
-  */
-  startCall = () => {
-    RtcEngine.setClientRole(this.state.channelRole);
-    RtcEngine.joinChannel(this.state.channelName, this.state.uid);  //Join Channel
-    RtcEngine.enableAudio();                                        //Enable the audio
-  }
+   * @name startCall
+   * @description Function to start the call
+   */
+  const startCall = () => {
+    if (engine.current) {
+      engine.current.joinChannel(null, channelName, null, 0); //Join Channel using null token and channel name
+      engine.current.setClientRole(channelRole);              //Set client role after joining the channel
+    }
+  };
 
   /**
-  * @name endCall
-  * @description Function to end the call
-  */
-  endCall = () => {
-    RtcEngine.leaveChannel();
-    this.setState({
-      peerIds: [],
-      joinSucceed: false,
-    });
-  }
+   * @name endCall
+   * @description Function to end the call
+   */
+  const endCall = () => {
+    if (engine.current) {
+      engine.current.leaveChannel();
+    }
+    setPeerIds([]);
+    setJoinSucceed(false);
+  };
 
   /**
   * @name toggleRole
   * @description Function to toggle the user role ( Broadcaster / Audience )
   */
-  toggleRole = () => {
-    this.state.channelRole === 2 ?
-      (this.setState({ channelRole: 1 }), RtcEngine.setClientRole(1))
-      : (this.setState({ channelRole: 2 }), RtcEngine.setClientRole(2));
-  }
+  const toggleRole = () => {
+    if (engine.current) {
+      channelRole === 2 ?
+        (setChannelRole(1), engine.current.setClientRole(1))
+        : (setChannelRole(2), engine.current.setClientRole(2));
+    }
+  };
 ```
-We define functions to start and end the call, which we do by joining and leaving the channel and updating our state variables. We also define a function to toggle the role between audience and broadcaster.
+We define functions to start and end the call, which we do by joining and leaving the channel and updating our state variables. We also define a function to toggle the role between audience and broadcaster .
 ```JSX
 ...
-  /**
-  * @name videoView
-  * @description Function to return the view for the app
-  */
-  videoView() {
-    return (
-      <View style={styles.max}>
-        {
-          <View style={styles.max}>
+  return (
+    <View style={styles.max}>
+      {
+        <View style={styles.max}>
           <View style={styles.topHolder}>
-              <Text style={styles.noUserText}>You are {this.state.channelRole === 2 ? 'the Audience' : 'a Broadcaster'}</Text>
-          <TouchableOpacity title="ToggleRole" onPress={() => this.toggleRole()} style={styles.button}>
-            <Text style={styles.buttonText}> Toggle Role </Text>
-          </TouchableOpacity>
+            <Text style={styles.noUserText}>You are {channelRole === 2 ? 'the Audience' : 'a Broadcaster'}</Text>
+            <TouchableOpacity onPress={toggleRole} style={styles.button}>
+              <Text style={styles.buttonText}> Toggle Role </Text>
+            </TouchableOpacity>
           </View>
-            <View style={styles.buttonHolder}>
-              <TouchableOpacity title="Start Call" onPress={() => this.startCall()} style={styles.button}>
-                <Text style={styles.buttonText}> Start Call </Text>
-              </TouchableOpacity>
-              <TouchableOpacity title="End Call" onPress={this.endCall} style={styles.button}>
-                <Text style={styles.buttonText}> End Call </Text>
-              </TouchableOpacity>
-            </View>
-            {
-              !this.state.joinSucceed ?
-                <View />
-                :
-                <View style={styles.fullView}>
-                  {
-                    this.state.peerIds.length > 3                   //view for four videostreams
+          <View style={styles.buttonHolder}>
+            <TouchableOpacity onPress={startCall} style={styles.button}>
+              <Text style={styles.buttonText}> Start Call </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={endCall} style={styles.button}>
+              <Text style={styles.buttonText}> End Call </Text>
+            </TouchableOpacity>
+          </View>
+          {
+            !joinSucceed ?
+              <View />
+              :
+              <View style={styles.fullView}>
+                {
+                  peerIds.length > 3                   //view for four videostreams
+                    ? <View style={styles.full}>
+                      <View style={styles.halfViewRow}>
+                        <RemoteView
+                          style={styles.half}
+                          channelId={channelName}
+                          uid={peerIds[0]}
+                          renderMode={1}
+                        />
+                        <RemoteView
+                          style={styles.half}
+                          channelId={channelName}
+                          uid={peerIds[1]}
+                          renderMode={1}
+                        />
+                      </View>
+                      <View style={styles.halfViewRow}>
+                        <RemoteView
+                          style={styles.half}
+                          channelId={channelName}
+                          uid={peerIds[2]}
+                          renderMode={1}
+                        />
+                        <RemoteView
+                          style={styles.half}
+                          channelId={channelName}
+                          uid={peerIds[3]}
+                          renderMode={1}
+                        />
+                      </View>
+                    </View>
+                    : peerIds.length > 2                   //view for three videostreams
                       ? <View style={styles.full}>
-                        <View style={styles.halfViewRow}>
-                          <AgoraView style={styles.half}
-                            remoteUid={this.state.peerIds[0]} mode={1} />
-                          <AgoraView style={styles.half}
-                            remoteUid={this.state.peerIds[1]} mode={1} />
+                        <View style={styles.half}>
+                          <RemoteView
+                            style={styles.full}
+                            channelId={channelName}
+                            uid={peerIds[0]}
+                            renderMode={1}
+                          />
                         </View>
                         <View style={styles.halfViewRow}>
-                          <AgoraView style={styles.half}
-                            remoteUid={this.state.peerIds[2]} mode={1} />
-                          <AgoraView style={styles.half}
-                            remoteUid={this.state.peerIds[3]} mode={1} />
+                          <RemoteView
+                            style={styles.half}
+                            channelId={channelName}
+                            uid={peerIds[1]}
+                            renderMode={1}
+                          />
+                          <RemoteView
+                            style={styles.half}
+                            channelId={channelName}
+                            uid={peerIds[2]}
+                            renderMode={1}
+                          />
                         </View>
                       </View>
-                      : this.state.peerIds.length > 2                   //view for three videostreams
+                      : peerIds.length > 1                   //view for two videostreams
                         ? <View style={styles.full}>
-                          <View style={styles.half}>
-                            <AgoraView style={styles.full}
-                              remoteUid={this.state.peerIds[0]} mode={1} />
-                          </View>
-                          <View style={styles.halfViewRow}>
-                            <AgoraView style={styles.half}
-                              remoteUid={this.state.peerIds[1]} mode={1} />
-                            <AgoraView style={styles.half}
-                              remoteUid={this.state.peerIds[2]} mode={1} />
-                          </View>
+                          <RemoteView
+                            style={styles.full}
+                            channelId={channelName}
+                            uid={peerIds[0]}
+                            renderMode={1}
+                          />
+                          <RemoteView
+                            style={styles.full}
+                            channelId={channelName}
+                            uid={peerIds[1]}
+                            renderMode={1}
+                          />
                         </View>
-                        : this.state.peerIds.length > 1                   //view for two videostreams
-                          ? <View style={styles.full}>
-                            <AgoraView style={styles.full}
-                              remoteUid={this.state.peerIds[0]} mode={1} />
-                            <AgoraView style={styles.full}
-                              remoteUid={this.state.peerIds[1]} mode={1} />
+                        : peerIds.length > 0                   //view for videostream
+                          ? <RemoteView
+                            style={styles.full}
+                            channelId={channelName}
+                            uid={peerIds[0]}
+                            renderMode={1}
+                          />
+                          : <View>
+                            <Text style={styles.noUserText}> No Broadcaster connected </Text>
                           </View>
-                          : this.state.peerIds.length > 0                   //view for videostream
-                            ? <AgoraView style={styles.full}
-                              remoteUid={this.state.peerIds[0]} mode={1} />
-                            : <View>
-                              <Text style={styles.noUserText}> No Broadcaster connected </Text>
-                            </View>
-                  }
-                  {
-                    this.state.channelRole === 1 ?
-                      <AgoraView style={styles.localVideoStyle}
-                        zOrderMediaOverlay={true} showLocalVideo={true} mode={1} />
-                      : <></>
-                  }
-                </View>
-            }
-          </View>
-        }
-      </View>
-    );
-  }
-  render() {
-    return this.videoView();
-  }
-}
-export default Video;
+                }
+                {
+                  channelRole === 1 ?
+                    <LocalView
+                      style={styles.localVideoStyle}
+                      channelId={channelName}
+                      renderMode={1}
+                      zOrderMediaOverlay={true}
+                    />
+                    : <></>
+                }
+              </View>
+          }
+        </View>
+      }
+    </View>
+  );
+};
+
+export default App;
 ```
-Next we define the view for different possible number of users; we start with 4 external users on the channel (diving the screen into four views using flexbox for four users) and move down to no connected users using conditional operator. Inside each view we use an AgoraView component, for viewing remote streams we set `remoteUid={'RemoteUidGoesHere'}`. For viewing the local user's stream we set `showLocalVideo={true}`.
+Next we define the view for different possible number of users; we start with 4 external users on the channel (diving the screen into four views using flexbox for four users) and move down to no connected users using conditional operator. Inside each view we use an RemoteView component, for viewing remote streams we set the `channelId={channelName}`, the `uid={'RemoteUidGoesHere'}` and the `mode` to select how the video is displayed in our view. For viewing the local user's stream we use LocalView component.
 
 ### permission.js
 ```javascript
