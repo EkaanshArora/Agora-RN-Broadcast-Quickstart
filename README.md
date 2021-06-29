@@ -42,7 +42,7 @@ Check the end of document if you want to use App ID with certificate.
 
 * Download and extract the zip file from the master branch.
 * Run npm install or use yarn to install the app dependencies in the unzipped directory.
-* Navigate to `./src/App.tsx` and edit line 13 to enter your App ID that we generated.
+* Navigate to `./src/App.tsx` and edit line 45 to enter your App ID that we generated.
 * Connect your device and run `react-native run-android` / `react-native run-ios` to start the app.
 
 The app uses `channel-x` as the channel name.

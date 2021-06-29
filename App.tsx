@@ -42,7 +42,7 @@ export default class App extends Component<null,State> {
   constructor(props) {
     super(props);
     this.state = {
-      appId: '30a6bc89994d4222a71eba01c253cbc7',
+      appId: '<Agora App ID>',
       token: null,
       isHost: true,
       channelName: 'channel-x',
