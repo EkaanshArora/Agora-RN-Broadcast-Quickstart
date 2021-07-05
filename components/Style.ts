@@ -35,6 +35,9 @@ export default StyleSheet.create({
     position: 'absolute',
     top: 5,
   },
+  remoteContainerContent: {
+    paddingHorizontal: 2.5,
+  },
   remote: {
     width: 150,
     height: 150,

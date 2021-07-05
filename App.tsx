@@ -17,35 +17,33 @@ import RtcEngine, {
 import requestCameraAndAudioPermission from './components/Permission';
 import styles from './components/Style';
 
-interface Props {}
-
 /**
  * @property appId Agora App ID
  * @property token Token for the channel;
- * @property isHost Boolean value to select between broadcaster and audience
  * @property channelName Channel Name for the current session
+ */
+const token = null;
+const appId = '<Agora App ID>';
+const channelName = 'channel-x';
+
+/**
+ * @property isHost Boolean value to select between broadcaster and audience
  * @property joinSucceed State variable for storing success
  * @property peerIds Array for storing connected peers
  */
 interface State {
-  appId: string;
-  token: string|null;
   isHost: boolean;
-  channelName: string;
   joinSucceed: boolean;
   peerIds: number[];
 }
 
-export default class App extends Component<null,State> {
+export default class App extends Component<null, State> {
   _engine?: RtcEngine;
 
   constructor(props) {
     super(props);
     this.state = {
-      appId: '<Agora App ID>',
-      token: null,
       isHost: true,
-      channelName: 'channel-x',
       joinSucceed: false,
       peerIds: [],
     };
@@ -66,12 +64,13 @@ export default class App extends Component<null,State> {
    * @description Function to initialize the Rtc Engine, attach event listeners and actions
    */
   init = async () => {
-    const { appId } = this.state;
     this._engine = await RtcEngine.create(appId);
     await this._engine.enableVideo();
     await this._engine?.setChannelProfile(ChannelProfile.LiveBroadcasting);
-    await this._engine?.setClientRole(this.state.isHost ? ClientRole.Broadcaster : ClientRole.Audience);
-    
+    await this._engine?.setClientRole(
+      this.state.isHost ? ClientRole.Broadcaster : ClientRole.Audience
+    );
+
     this._engine.addListener('Warning', (warn) => {
       console.log('Warning', warn);
     });
@@ -129,19 +128,14 @@ export default class App extends Component<null,State> {
       }
     );
   };
-  
+
   /**
    * @name startCall
    * @description Function to start the call
    */
   startCall = async () => {
     // Join Channel using null token and channel name
-    await this._engine?.joinChannel(
-      this.state.token,
-      this.state.channelName,
-      null,
-      0
-    );
+    await this._engine?.joinChannel(token, channelName, null, 0);
   };
 
   /**
@@ -157,9 +151,11 @@ export default class App extends Component<null,State> {
     return (
       <View style={styles.max}>
         <View style={styles.max}>
-          <Text style={styles.roleText}> You're {this.state.isHost ? 'a broadcaster' : 'the audience'}</Text>
+          <Text style={styles.roleText}>
+            You're {this.state.isHost ? 'a broadcaster' : 'the audience'}
+          </Text>
           <View style={styles.buttonHolder}>
-          <TouchableOpacity onPress={this.toggleRoll} style={styles.button}>
+            <TouchableOpacity onPress={this.toggleRoll} style={styles.button}>
               <Text style={styles.buttonText}> Toggle Role </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={this.startCall} style={styles.button}>
@@ -182,7 +178,7 @@ export default class App extends Component<null,State> {
         {this.state.isHost ? (
           <RtcLocalView.SurfaceView
             style={styles.max}
-            channelId={this.state.channelName}
+            channelId={channelName}
             renderMode={VideoRenderMode.Hidden}
           />
         ) : (
@@ -198,7 +194,7 @@ export default class App extends Component<null,State> {
     return (
       <ScrollView
         style={styles.remoteContainer}
-        contentContainerStyle={{ paddingHorizontal: 2.5 }}
+        contentContainerStyle={styles.remoteContainerContent}
         horizontal={true}
       >
         {peerIds.map((value) => {
@@ -206,10 +202,9 @@ export default class App extends Component<null,State> {
             <RtcRemoteView.SurfaceView
               style={styles.remote}
               uid={value}
-              channelId={this.state.channelName}
+              channelId={channelName}
               renderMode={VideoRenderMode.Hidden}
               zOrderMediaOverlay={true}
-              key={value}
             />
           );
         })}
