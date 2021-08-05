@@ -24,8 +24,7 @@ import styles from './components/Style';
  */
 const token = null;
 const appId = '<Agora App ID>';
-const channelName = 'channel-x';
-
+const channelName = 'test';
 /**
  * @property isHost Boolean value to select between broadcaster and audience
  * @property joinSucceed State variable for storing success
