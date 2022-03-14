@@ -3,6 +3,7 @@
 Quickstart for live-broadcasting on react-native using Agora.io SDK.
 Use this guide to quickly start a multiple user live broadcast.
 
+You can also check out the updated version using [functional components](https://github.com/EkaanshArora/Agora-RN-Broadcast-Quickstart/tree/functional-components).
 
 ## Prerequisites
 * '>= react native 0.60.x'
