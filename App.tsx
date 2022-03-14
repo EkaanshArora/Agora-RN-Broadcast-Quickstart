@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Platform,
   ScrollView,
@@ -10,187 +10,137 @@ import RtcEngine, {
   RtcLocalView,
   RtcRemoteView,
   VideoRenderMode,
-  ClientRole,
   ChannelProfile,
+  ClientRole
 } from 'react-native-agora';
 
 import requestCameraAndAudioPermission from './components/Permission';
 import styles from './components/Style';
 
-/**
- * @property appId Agora App ID
- * @property token Token for the channel;
- * @property channelName Channel Name for the current session
- */
-const token = null;
-const appId = '<Agora App ID>';
-const channelName = 'channel-x';
+const config = {
+  appId: YourAgoraAppID,
+  token: YourChannelTokenOrNull,
+  channelName: 'channel-x',
+};
 
-/**
- * @property isHost Boolean value to select between broadcaster and audience
- * @property joinSucceed State variable for storing success
- * @property peerIds Array for storing connected peers
- */
-interface State {
-  isHost: boolean;
-  joinSucceed: boolean;
-  peerIds: number[];
-}
+const App = () => {
+  const _engine = useRef<RtcEngine | null>(null);
+  const [isJoined, setJoined] = useState(false);
+  const [peerIds, setPeerIds] = useState<number[]>([]);
+  const [isHost, setHost] = useState(false);
 
-export default class App extends Component<null, State> {
-  _engine?: RtcEngine;
-
-  constructor(props) {
-    super(props);
-    this.state = {
-      isHost: true,
-      joinSucceed: false,
-      peerIds: [],
-    };
+  useEffect(() => {
     if (Platform.OS === 'android') {
       // Request required permissions from Android
       requestCameraAndAudioPermission().then(() => {
         console.log('requested!');
       });
     }
-  }
+  }, []);
 
-  componentDidMount() {
-    this.init();
-  }
+  useEffect(() => {
+    /**
+     * @name init
+     * @description Function to initialize the Rtc Engine, attach event listeners and actions
+     */
+    const init = async () => {
+      const { appId } = config;
+      _engine.current = await RtcEngine.create(appId);
+      await _engine.current.enableVideo();
+      await _engine.current.setChannelProfile(ChannelProfile.LiveBroadcasting);
+      await _engine.current.setClientRole(
+        isHost ? ClientRole.Broadcaster : ClientRole.Audience
+      );
 
-  /**
-   * @name init
-   * @description Function to initialize the Rtc Engine, attach event listeners and actions
-   */
-  init = async () => {
-    this._engine = await RtcEngine.create(appId);
-    await this._engine.enableVideo();
-    await this._engine?.setChannelProfile(ChannelProfile.LiveBroadcasting);
-    await this._engine?.setClientRole(
-      this.state.isHost ? ClientRole.Broadcaster : ClientRole.Audience
-    );
+      _engine.current.addListener('Warning', (warn) => {
+        console.log('Warning', warn);
+      });
 
-    this._engine.addListener('Warning', (warn) => {
-      console.log('Warning', warn);
-    });
+      _engine.current.addListener('Error', (err) => {
+        console.log('Error', err);
+      });
 
-    this._engine.addListener('Error', (err) => {
-      console.log('Error', err);
-    });
-
-    this._engine.addListener('UserJoined', (uid, elapsed) => {
-      console.log('UserJoined', uid, elapsed);
-      // Get current peer IDs
-      const { peerIds } = this.state;
-      // If new user
-      if (peerIds.indexOf(uid) === -1) {
-        this.setState({
+      _engine.current.addListener('UserJoined', (uid, elapsed) => {
+        console.log('UserJoined', uid, elapsed);
+        // If new user
+        if (peerIds.indexOf(uid) === -1) {
           // Add peer ID to state array
-          peerIds: [...peerIds, uid],
-        });
-      }
-    });
+          setPeerIds((prev) => [...prev, uid]);
+        }
+      });
 
-    this._engine.addListener('UserOffline', (uid, reason) => {
-      console.log('UserOffline', uid, reason);
-      const { peerIds } = this.state;
-      this.setState({
+      _engine.current.addListener('UserOffline', (uid, reason) => {
+        console.log('UserOffline', uid, reason);
         // Remove peer ID from state array
-        peerIds: peerIds.filter((id) => id !== uid),
+        setPeerIds((prev) => prev.filter((id) => id !== uid));
       });
-    });
 
-    // If Local user joins RTC channel
-    this._engine.addListener('JoinChannelSuccess', (channel, uid, elapsed) => {
-      console.log('JoinChannelSuccess', channel, uid, elapsed);
-      // Set state variable to true
-      this.setState({
-        joinSucceed: true,
-      });
-    });
-  };
+      // If Local user joins RTC channel
+      _engine.current.addListener(
+        'JoinChannelSuccess',
+        (channel, uid, elapsed) => {
+          console.log('JoinChannelSuccess', channel, uid, elapsed);
+          // Set state variable to true
+          setJoined(true);
+        }
+      );
+    };
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
    * @name toggleRoll
    * @description Function to toggle the roll between broadcaster and audience
    */
-  toggleRoll = async () => {
-    // Join Channel using null token and channel name
-    this.setState(
-      {
-        isHost: !this.state.isHost,
-      },
-      async () => {
-        await this._engine?.setClientRole(
-          this.state.isHost ? ClientRole.Broadcaster : ClientRole.Audience
-        );
-      }
-    );
+   const toggleRoll = async () => {
+    await _engine.current?.setClientRole(
+      isHost ? ClientRole.Audience : ClientRole.Broadcaster
+    ).then(()=>{
+      setHost(prev => !prev)
+    })
   };
 
   /**
    * @name startCall
    * @description Function to start the call
    */
-  startCall = async () => {
+  const startCall = async () => {
     // Join Channel using null token and channel name
-    await this._engine?.joinChannel(token, channelName, null, 0);
+    await _engine.current?.joinChannel(
+      config.token,
+      config.channelName,
+      null,
+      0
+    );
   };
 
   /**
    * @name endCall
    * @description Function to end the call
    */
-  endCall = async () => {
-    await this._engine?.leaveChannel();
-    this.setState({ peerIds: [], joinSucceed: false });
+  const endCall = async () => {
+    await _engine.current?.leaveChannel();
+    setPeerIds([]);
+    setJoined(false);
   };
 
-  render() {
-    return (
-      <View style={styles.max}>
-        <View style={styles.max}>
-          <Text style={styles.roleText}>
-            You're {this.state.isHost ? 'a broadcaster' : 'the audience'}
-          </Text>
-          <View style={styles.buttonHolder}>
-            <TouchableOpacity onPress={this.toggleRoll} style={styles.button}>
-              <Text style={styles.buttonText}> Toggle Role </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={this.startCall} style={styles.button}>
-              <Text style={styles.buttonText}> Start Call </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={this.endCall} style={styles.button}>
-              <Text style={styles.buttonText}> End Call </Text>
-            </TouchableOpacity>
-          </View>
-          {this._renderVideos()}
-        </View>
-      </View>
-    );
-  }
-
-  _renderVideos = () => {
-    const { joinSucceed } = this.state;
-    return joinSucceed ? (
+  const _renderVideos = () => {
+    return isJoined ? (
       <View style={styles.fullView}>
-        {this.state.isHost ? (
+        {isHost &&
           <RtcLocalView.SurfaceView
             style={styles.max}
-            channelId={channelName}
+            channelId={config.channelName}
             renderMode={VideoRenderMode.Hidden}
           />
-        ) : (
-          <></>
-        )}
-        {this._renderRemoteVideos()}
+        }
+        {_renderRemoteVideos()}
       </View>
     ) : null;
   };
 
-  _renderRemoteVideos = () => {
-    const { peerIds } = this.state;
+  const _renderRemoteVideos = () => {
     return (
       <ScrollView
         style={styles.remoteContainer}
@@ -202,7 +152,8 @@ export default class App extends Component<null, State> {
             <RtcRemoteView.SurfaceView
               style={styles.remote}
               uid={value}
-              channelId={channelName}
+              key={value}
+              channelId={config.channelName}
               renderMode={VideoRenderMode.Hidden}
               zOrderMediaOverlay={true}
             />
@@ -211,4 +162,28 @@ export default class App extends Component<null, State> {
       </ScrollView>
     );
   };
-}
+
+  return (
+    <View style={styles.max}>
+      <View style={styles.max}>
+        <Text style={styles.roleText}>
+          You're {isHost ? 'a broadcaster' : 'the audience'}
+        </Text>
+        <View style={styles.buttonHolder}>
+          <TouchableOpacity onPress={startCall} style={styles.button}>
+            <Text style={styles.buttonText}> Start Call </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={toggleRoll} style={styles.button}>
+            <Text style={styles.buttonText}> Toggle Role </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={endCall} style={styles.button}>
+            <Text style={styles.buttonText}> End Call </Text>
+          </TouchableOpacity>
+        </View>
+        {_renderVideos()}
+      </View>
+    </View>
+  );
+};
+
+export default App;

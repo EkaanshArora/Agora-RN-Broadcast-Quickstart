@@ -33,18 +33,18 @@ Use this guide to quickly start a multiple user live broadcast.
 In the next step, you need to use the App ID of your project. Follow these steps to [create an Agora project](https://docs.agora.io/en/Agora%20Platform/manage_projects?platform=All%20Platforms) in Console and get an [App ID](https://docs.agora.io/en/Agora%20Platform/terms?platform=All%20Platforms#a-nameappidaapp-id ).
 
 1. Go to [Console](https://dashboard.agora.io/) and click the **[Project Management](https://dashboard.agora.io/projects)** icon on the left navigation panel. 
-2. Click **Create** and follow the on-screen instructions to set the project name, choose an authentication mechanism (for this project select App ID without a certificate), and Click **Submit**. 
+2. Click **Create** and follow the on-screen instructions to set the project name, choose testing mode, and Click **Submit**. This let's you quickly test the app without using tokens, in production please use secured mode for your app.
 3. On the **Project Management** page, find the **App ID** of your project. 
 
-Check the end of document if you want to use App ID with certificate.
 
 ### Steps to run our example
 
 * Download and extract the zip file from the master branch.
 * Run npm install or use yarn to install the app dependencies in the unzipped directory.
-* Navigate to `./src/App.tsx` and edit line 26 to enter your App ID that we generated.
-* If you're using secure mode in the Agora Console, add a token to the token variable on line 25. (You can generate temporary tokens in the Agora Console)
-* Connect your device and run `react-native run-android` / `react-native run-ios` to start the app.
+* Navigate to `./src/App.tsx` and edit line 20 to enter your App ID.
+* If you're using secure mode for your project in the Agora Console, generate a channel token and add it to the token variable.
+* Connect your device and run `npm run android` / `npm run ios` to start the app.
+* For iOS make sure you configure code signing in XCode, also add permissions to access the camera and microphone in your `info.plist` file.
 
 The app uses `channel-x` as the channel name.
 
